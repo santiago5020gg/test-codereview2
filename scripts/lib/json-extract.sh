@@ -7,8 +7,8 @@
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "${SCRIPT_DIR}/common.sh"
+_JSON_EXTRACT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${_JSON_EXTRACT_DIR}/common.sh"
 
 # Extract JSON array from Claude CLI output
 # Usage: extract_json <input_file> <output_file>

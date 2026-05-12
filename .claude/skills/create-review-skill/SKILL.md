@@ -10,7 +10,7 @@ user-invocable: true
 
 You are a skill factory. Your job is to guide the developer through creating a new code review skill that will be automatically enforced by the PR review pipeline. The pipeline scans `.claude/skills/*/SKILL.md` and passes each skill's content to Claude Sonnet, which validates changed files against the rules defined therein.
 
-Follow the phases below in order. Do not skip phases or combine them unless the developer explicitly asks to fast-track.
+Follow the phases below in order. Phase 2 (clarifying questions) is always mandatory and cannot be skipped.
 
 ---
 

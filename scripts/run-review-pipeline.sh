@@ -38,7 +38,7 @@ trap 'rm -rf "$WORK_DIR"' EXIT
 # --- Step 1: Collect changed code files ---
 
 collect_files() {
-  log_info "Collecting changed code files (${BASE_SHA}..${HEAD_SHA})..."
+  log_info "Collecting changed code files (${BASE_SHA}..${HEAD_SHA})..." >&2
 
   local all_changed
   all_changed=$(git diff --name-only --diff-filter=ACMR "${BASE_SHA}...${HEAD_SHA}" || true)
@@ -52,19 +52,19 @@ collect_files() {
   done <<< "$all_changed"
 
   if [[ ${#code_files[@]} -eq 0 ]]; then
-    log_info "No code files changed."
+    log_info "No code files changed." >&2
     echo ""
     return
   fi
 
-  log_info "Found ${#code_files[@]} code file(s) to review."
+  log_info "Found ${#code_files[@]} code file(s) to review." >&2
   printf '%s\n' "${code_files[@]}"
 }
 
 # --- Step 2: Read all skills ---
 
 collect_skills() {
-  log_info "Collecting skills from ${SKILLS_DIR}/..."
+  log_info "Collecting skills from ${SKILLS_DIR}/..." >&2
 
   local skills_content=""
   if [[ -d "$SKILLS_DIR" ]]; then
@@ -82,7 +82,7 @@ collect_skills() {
   fi
 
   if [[ -z "$skills_content" ]]; then
-    log_warn "No skills found. Pipeline will have no rules to validate against."
+    log_warn "No skills found. Pipeline will have no rules to validate against." >&2
     skills_content="(No review skills defined)"
   fi
 
@@ -130,7 +130,7 @@ run_validation() {
 
   echo "$prompt" > "${WORK_DIR}/validation-prompt.txt"
 
-  log_info "Running validation (Sonnet)..."
+  log_info "Running validation (Sonnet)..." >&2
   local raw_output="${WORK_DIR}/validation-raw.json"
 
   timeout 180 claude --print --model sonnet --output-format json \
@@ -155,7 +155,7 @@ run_track1_verification() {
   prior_violations=$(jq -r '.active_violations' "$artifact")
 
   if [[ "$prior_violations" == "[]" || "$prior_violations" == "null" ]]; then
-    log_info "No prior violations to re-verify."
+    log_info "No prior violations to re-verify." >&2
     echo "[]"
     return
   fi
@@ -173,7 +173,7 @@ run_track1_verification() {
   done <<< "$violation_files"
 
   if [[ ${#files_to_check[@]} -eq 0 ]]; then
-    log_info "Prior violation files no longer exist — marking all resolved."
+    log_info "Prior violation files no longer exist — marking all resolved." >&2
     echo "$prior_violations" | jq '[.[] | . + {"status": "resolved"}]'
     return
   fi
@@ -189,7 +189,7 @@ run_track1_verification() {
 
   echo "$prompt" > "${WORK_DIR}/track1-prompt.txt"
 
-  log_info "Running Track 1 verification (Sonnet)..."
+  log_info "Running Track 1 verification (Sonnet)..." >&2
   local raw_output="${WORK_DIR}/track1-raw.json"
 
   timeout 180 claude --print --model sonnet --output-format json \
@@ -198,7 +198,7 @@ run_track1_verification() {
 
   local result="${WORK_DIR}/track1-result.json"
   if ! extract_json "$raw_output" "$result"; then
-    log_error "Failed to extract Track 1 output. Treating all as still_present."
+    log_error "Failed to extract Track 1 output. Treating all as still_present." >&2
     echo "$prior_violations" | jq '[.[] | . + {"status": "still_present"}]'
     return
   fi
@@ -224,7 +224,7 @@ run_synthesis() {
 
   echo "$prompt" > "${WORK_DIR}/synthesis-prompt.txt"
 
-  log_info "Running synthesis (Opus)..."
+  log_info "Running synthesis (Opus)..." >&2
   local raw_output="${WORK_DIR}/synthesis-raw.json"
 
   timeout 300 claude --print --model opus --output-format json \
@@ -233,7 +233,7 @@ run_synthesis() {
 
   local result="${WORK_DIR}/synthesis-result.json"
   if ! extract_json_object "$raw_output" "$result"; then
-    log_error "Failed to extract synthesis output. Using fail-closed default."
+    log_error "Failed to extract synthesis output. Using fail-closed default." >&2
     cat <<FAILSAFE > "$result"
 {
   "verdict": "fail",

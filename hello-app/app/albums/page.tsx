@@ -1,4 +1,14 @@
-function AlbumList({ albums }: { albums: { id: number; userId: number; title: string }[] }): React.ReactElement {
+interface Album {
+  id: number;
+  userId: number;
+  title: string;
+}
+
+interface AlbumListProps {
+  albums: Album[];
+}
+
+function AlbumList({ albums }: AlbumListProps): React.ReactElement {
   return (
     <main style={{ maxWidth: "800px", margin: "0 auto", padding: "2rem" }}>
       <h1>Albums</h1>
@@ -40,7 +50,7 @@ function AlbumList({ albums }: { albums: { id: number; userId: number; title: st
 
 export default async function AlbumsPage(): Promise<React.ReactElement> {
   const response = await fetch("https://jsonplaceholder.typicode.com/albums");
-  const albums: { id: number; userId: number; title: string }[] = await response.json();
+  const albums: Album[] = await response.json();
 
   return <AlbumList albums={albums} />;
 }

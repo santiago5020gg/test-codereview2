@@ -97,6 +97,14 @@ jobs:
           chmod +x scripts/post-review.sh
           bash scripts/post-review.sh
 
+      - name: Fail if violations found
+        run: |
+          VERDICT=$(jq -r '.verdict' /tmp/pipeline-result.json)
+          if [[ "$VERDICT" == "fail" ]]; then
+            echo "::error::Code review found critical violations. See review comments for details."
+            exit 1
+          fi
+
       - name: Upload violations artifact
         uses: actions/upload-artifact@v4
         with:

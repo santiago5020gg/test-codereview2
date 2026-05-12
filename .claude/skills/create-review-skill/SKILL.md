@@ -1,7 +1,7 @@
 ---
 name: Create Review Skill
 description: Interactive skill factory that guides developers through creating new code review skills for the automated PR pipeline
-when_to_use: When a developer wants to add a new automated code review rule or convention to the PR pipeline
+when_to_use: "TRIGGER when: user wants to add a new code review rule, create a review skill, or define PR validation criteria. SKIP when: user wants to edit an existing skill, run a review, or work on pipeline infrastructure."
 effort: low
 user-invocable: true
 ---
@@ -36,7 +36,7 @@ You MUST ask at least 2 clarifying questions before proceeding. Select the most 
 
 1. **Scope:** Which file types or directories should this rule apply to? (e.g., all code files, only `.ts`/`.tsx`, only files in `src/`)
 2. **Exceptions:** Are there any cases where violating this rule is acceptable? (e.g., test files, generated code, legacy modules)
-3. **Severity:** Should violations be flagged as `Required` (must fix before merge) or `Recommended` (suggestion, not blocking)?
+3. **Severity:** Should violations be flagged as `Critical` (must fix before merge) or `Recommended` (suggestion, not blocking)?
 4. **Examples:** Can you provide a concrete example of code that violates this rule and how it should be fixed?
 5. **Boundary cases:** Are there edge cases or ambiguous situations where the rule might not clearly apply?
 6. **Granularity:** Does this intent cover multiple distinct rules? If so, which specific sub-rules matter most?
@@ -83,7 +83,7 @@ Template:
 
 {One to two sentence description of what the rule enforces and why.}
 
-**Severity:** {Required | Recommended}
+**Severity:** {Critical | Recommended}
 
 **Applies to:** {File patterns or "All code files"}
 
@@ -148,8 +148,14 @@ Generated skills must NEVER include YAML frontmatter (`---` blocks). Only this f
 Before presenting the generated skill in Phase 4, verify:
 - Every rule has all required fields: description, Severity, Applies to, Example violation, Example fix
 - Code examples are syntactically plausible (no obvious syntax errors)
-- Severity is exactly `Required` or `Recommended` (no other values)
+- Severity is exactly `Critical` or `Recommended` (no other values)
 - Rule titles are concise (under 60 characters)
+
+### Linter Suggestion
+If the developer's requested rule is better enforced by a linter (ESLint, Prettier, Stylelint, etc.), inform them that a linter rule would be more reliable and immediate for this case. Explain why (e.g., instant IDE feedback, auto-fixable, zero false positives). However, if the developer still wants a review skill after hearing this, proceed with creating it — do not block them.
+
+### Do Not Modify Pipeline Infrastructure
+This factory ONLY creates new skill files under `.claude/skills/`. It must NEVER modify pipeline scripts, GitHub Actions workflow files (`.github/workflows/`), post-review scripts, or any other infrastructure. If the developer asks for changes to pipeline behavior, direct them to modify those files manually or use a different tool.
 
 ### Scope Limits
 - Maximum 3 rules per skill. If the developer needs more, guide them to create a second skill.

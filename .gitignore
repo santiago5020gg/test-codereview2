@@ -1,2 +1,3 @@
 video steps/
 .review-artifacts/
+.claude/settings.local.json

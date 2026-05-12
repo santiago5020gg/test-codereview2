@@ -1,9 +1,15 @@
 ---
-name: Create Review Skill
+name: create-review-skill
 description: Interactive skill factory that guides developers through creating new code review skills for the automated PR pipeline
 when_to_use: "TRIGGER when: user wants to add a new code review rule, create a review skill, or define PR validation criteria. SKIP when: user wants to edit an existing skill, run a review, or work on pipeline infrastructure."
 effort: low
 user-invocable: true
+allowed-tools:
+  - Read
+  - Write
+  - Glob
+  - Edit
+  - AskUserQuestion
 ---
 
 # Create Review Skill
@@ -30,9 +36,11 @@ If the intent is vague, ask a single follow-up to clarify before proceeding to P
 
 ---
 
-## Phase 2: Mandatory Clarifying Questions
+## Phase 2: Guided Refinement (Mandatory)
 
-You MUST ask at least 2 clarifying questions before proceeding. Select the most relevant from this list based on the developer's intent:
+Initial rule descriptions are always incomplete. You MUST ask clarifying questions **one at a time** before generating a skill. This phase cannot be skipped.
+
+Select the most relevant questions from this list based on the developer's intent:
 
 1. **Scope:** Which file types or directories should this rule apply to? (e.g., all code files, only `.ts`/`.tsx`, only files in `src/`)
 2. **Exceptions:** Are there any cases where violating this rule is acceptable? (e.g., test files, generated code, legacy modules)
@@ -42,9 +50,10 @@ You MUST ask at least 2 clarifying questions before proceeding. Select the most 
 6. **Granularity:** Does this intent cover multiple distinct rules? If so, which specific sub-rules matter most?
 
 Rules for this phase:
+- Ask **one question per message**. Wait for the developer's answer before asking the next question.
+- Prefer **multiple-choice** format when possible — offer 2-4 concrete options the developer can pick from (they can always choose "Other" or provide a custom answer).
 - Ask a MINIMUM of 2 questions. You may ask up to 4 if the intent is complex.
-- Present all questions together in a single message (do not drip-feed them one at a time).
-- Wait for the developer's answers before proceeding to Phase 3.
+- After each answer, decide whether you have enough clarity to proceed or need another question.
 - If the developer's answers reveal more than 3 distinct rules, suggest splitting into multiple skills and confirm which rules to include in this skill.
 
 ---
@@ -68,13 +77,32 @@ Wait for confirmation before proceeding. If the developer requests changes, revi
 
 ## Phase 4: Generate the Skill File
 
-Generate the skill content using EXACTLY this template structure. The output must match the format used by existing skills in this pipeline.
+Generate the skill content following the [Agent Skills](https://agentskills.io) open standard used by Claude Code. Every generated skill MUST include proper YAML frontmatter and follow the structure below.
 
-IMPORTANT: The generated skill must NOT include YAML frontmatter (no `---` block at the top). Only this factory skill has frontmatter. Generated skills start directly with the `#` title.
+### Frontmatter requirements
 
-Template:
+All generated skills must include frontmatter with these fields:
 
-```markdown
+| Field | Required | Description |
+|-------|----------|-------------|
+| `name` | Yes | Kebab-case slug (lowercase letters, numbers, hyphens only, max 64 chars) |
+| `description` | Yes | What the skill does. Put the key use case first — truncated at 1,536 chars combined with `when_to_use`. |
+| `when_to_use` | Yes | Trigger/skip conditions so Claude knows when to auto-invoke this skill. |
+| `user-invocable` | Yes | Set to `false` — review skills are background knowledge invoked by Claude during reviews, not user commands. |
+| `paths` | Recommended | Glob patterns limiting when the skill activates (e.g., `["src/**/*.ts", "src/**/*.tsx"]`). |
+
+### Template
+
+````markdown
+---
+name: {slug}
+description: "Code review skill that enforces {brief rule summary}"
+when_to_use: "TRIGGER when: reviewing files matching {scope}. SKIP when: file is outside scope or in an excluded path."
+user-invocable: false
+paths:
+  - "{glob pattern}"
+---
+
 # {Skill Name}
 
 ## Rules
@@ -96,16 +124,19 @@ Template:
 ```{language}
 {Corrected code that follows the rule}
 ```
-```
+````
 
 Repeat the `### Rule N:` block for each rule (maximum 3 per skill).
 
-Guidelines for generation:
+### Generation guidelines
+
 - Use the developer's provided examples when available; otherwise create realistic examples.
 - Keep example code snippets short (3-8 lines) and focused on the specific violation.
 - Ensure the "Example fix" directly corresponds to the "Example violation" — same logic, just refactored.
 - Use the correct language identifier in fenced code blocks (typescript, javascript, python, java, etc.).
 - The description after each rule header should explain both WHAT is required and WHY (briefly).
+- Keep total skill content under 500 lines; move lengthy reference material to supporting files in the skill directory if needed.
+- State what to do rather than narrating how or why — skills stay in context across turns (recurring token cost).
 
 Present the complete generated content to the developer and ask:
 
@@ -141,8 +172,13 @@ Before saving in Phase 5, verify that the directory `.claude/skills/{slug}/` doe
 - Show the existing skill's title (read the first line of the existing SKILL.md)
 - Offer options: choose a different slug, overwrite the existing skill, or cancel
 
-### No Frontmatter in Generated Skills
-Generated skills must NEVER include YAML frontmatter (`---` blocks). Only this factory skill itself has frontmatter. If you catch yourself adding frontmatter to generated output, remove it immediately.
+### Frontmatter Validation
+Generated skills MUST include valid YAML frontmatter. Verify:
+- `name` uses only lowercase letters, numbers, and hyphens (max 64 characters)
+- `description` is present and starts with the key use case
+- `when_to_use` includes both TRIGGER and SKIP conditions
+- `user-invocable` is set to `false` (review skills are not user commands)
+- `paths` contains valid glob patterns matching the rule's scope
 
 ### Quality Checks
 Before presenting the generated skill in Phase 4, verify:

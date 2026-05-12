@@ -1,0 +1,107 @@
+# .github/workflows/pr-code-review-validator.yml
+name: PR Code Review Validator
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+env:
+  ANTHROPIC_BEDROCK_BASE_URL: "${{ secrets.BEDROCK_BASE_URL }}"
+  ANTHROPIC_CUSTOM_HEADERS: "x-portkey-api-key:${{ secrets.PORTKEY_API_KEY }}\nx-portkey-provider:@aws-bedrock-use2"
+  CLAUDE_CODE_USE_BEDROCK: "1"
+  CLAUDE_CODE_SKIP_BEDROCK_AUTH: "1"
+
+jobs:
+  review:
+    name: AI Code Review
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Claude Code CLI
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Install jq
+        run: sudo apt-get install -y jq
+
+      - name: Download prior artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: review-violations-pr-${{ github.event.pull_request.number }}
+          path: .review-artifacts/
+        continue-on-error: true
+
+      - name: Detect review mode
+        id: detect-mode
+        env:
+          PR_NUMBER: "${{ github.event.pull_request.number }}"
+          FORCED: "${{ github.event.forced }}"
+          LABELS: "${{ join(github.event.pull_request.labels.*.name, ',') }}"
+          GITHUB_OUTPUT: "${{ github.output }}"
+        run: |
+          chmod +x scripts/detect-review-mode.sh
+          bash scripts/detect-review-mode.sh
+
+      - name: Cleanup prior reviews
+        env:
+          PR_NUMBER: "${{ github.event.pull_request.number }}"
+          REPO: "${{ github.repository }}"
+          GH_TOKEN: "${{ github.token }}"
+        run: |
+          chmod +x scripts/cleanup-prior-reviews.sh
+          bash scripts/cleanup-prior-reviews.sh
+
+      - name: Run review pipeline
+        env:
+          MODE: "${{ steps.detect-mode.outputs.MODE }}"
+          PR_NUMBER: "${{ github.event.pull_request.number }}"
+          BASE_SHA: "${{ github.event.pull_request.base.sha }}"
+          HEAD_SHA: "${{ github.event.pull_request.head.sha }}"
+          PIPELINE_OUTPUT: "/tmp/pipeline-result.json"
+          TIMEOUT: "540"
+        run: |
+          chmod +x scripts/run-review-pipeline.sh
+          timeout ${TIMEOUT}s bash scripts/run-review-pipeline.sh
+
+      - name: Determine push count
+        id: push-count
+        run: |
+          if [[ -f ".review-artifacts/violations.json" ]]; then
+            CURRENT=$(jq -r '.push_count // 0' .review-artifacts/violations.json)
+            echo "count=$((CURRENT + 1))" >> "$GITHUB_OUTPUT"
+          else
+            echo "count=1" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Post review to GitHub
+        env:
+          PR_NUMBER: "${{ github.event.pull_request.number }}"
+          REPO: "${{ github.repository }}"
+          HEAD_SHA: "${{ github.event.pull_request.head.sha }}"
+          PIPELINE_OUTPUT: "/tmp/pipeline-result.json"
+          PUSH_COUNT: "${{ steps.push-count.outputs.count }}"
+          GH_TOKEN: "${{ github.token }}"
+        run: |
+          chmod +x scripts/post-review.sh
+          bash scripts/post-review.sh
+
+      - name: Upload violations artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: review-violations-pr-${{ github.event.pull_request.number }}
+          path: .review-artifacts/violations.json
+          overwrite: true
+        if: always()

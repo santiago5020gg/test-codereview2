@@ -1,14 +1,15 @@
 interface Todo {
   userId: number;
-  id: any;
+  id: number;
   title: string;
-  completed: any;
+  completed: boolean;
 }
 
-export default async function TodosPage(): Promise<React.ReactElement> {
-  const response = await fetch("https://jsonplaceholder.typicode.com/todos");
-  const todos: any[] = await response.json();
+interface TodoListProps {
+  todos: Todo[];
+}
 
+function TodoList({ todos }: TodoListProps): React.ReactElement {
   return (
     <main style={{ maxWidth: "800px", margin: "0 auto", padding: "2rem" }}>
       <h1>Todos</h1>
@@ -46,4 +47,11 @@ export default async function TodosPage(): Promise<React.ReactElement> {
       </ul>
     </main>
   );
+}
+
+export default async function TodosPage(): Promise<React.ReactElement> {
+  const response = await fetch("https://jsonplaceholder.typicode.com/todos");
+  const todos: Todo[] = await response.json();
+
+  return <TodoList todos={todos} />;
 }

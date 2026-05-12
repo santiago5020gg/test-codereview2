@@ -1,12 +1,9 @@
-export default async function AlbumsPage() {
-  const response = await fetch("https://jsonplaceholder.typicode.com/albums");
-  const albums = await response.json();
-
+function AlbumList({ albums }: { albums: { id: number; userId: number; title: string }[] }): React.ReactElement {
   return (
     <main style={{ maxWidth: "800px", margin: "0 auto", padding: "2rem" }}>
       <h1>Albums</h1>
       <ul style={{ listStyle: "none", padding: 0 }}>
-        {albums.map((album: { id: number; userId: number; title: string }) => (
+        {albums.map((album) => (
           <li
             key={album.id}
             style={{
@@ -39,4 +36,11 @@ export default async function AlbumsPage() {
       </ul>
     </main>
   );
+}
+
+export default async function AlbumsPage(): Promise<React.ReactElement> {
+  const response = await fetch("https://jsonplaceholder.typicode.com/albums");
+  const albums: { id: number; userId: number; title: string }[] = await response.json();
+
+  return <AlbumList albums={albums} />;
 }
